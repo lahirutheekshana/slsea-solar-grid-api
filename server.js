@@ -3,21 +3,31 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
+import provinceRoutes from './routes/provinceRoutes.js';
+import districtRoutes from './routes/districtRoutes.js';
+import installationRoutes from './routes/installationRoutes.js';
+import readingRoutes from './routes/readingRoutes.js';
+
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// MongoDB Connection Test
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log('✅ MongoDB Database Connected Successfully!');
+    console.log(' MongoDB Database Connected Successfully!');
   })
   .catch((err) => {
-    console.error('❌ MongoDB Connection Error:', err.message);
+    console.error(' MongoDB Connection Error:', err.message);
   });
+
+  app.use('/api/provinces', provinceRoutes);
+  app.use('/api/districts', districtRoutes);
+  app.use('/api/installations', installationRoutes);
+  app.use('/api', readingRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
