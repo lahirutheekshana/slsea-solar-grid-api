@@ -7,6 +7,7 @@ import provinceRoutes from './routes/provinceRoutes.js';
 import districtRoutes from './routes/districtRoutes.js';
 import installationRoutes from './routes/installationRoutes.js';
 import readingRoutes from './routes/readingRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ mongoose
   app.use('/api/districts', districtRoutes);
   app.use('/api/installations', installationRoutes);
   app.use('/api', readingRoutes);
+  app.use('/api/auth', authRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
