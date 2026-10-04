@@ -6,4 +6,5 @@ const gridSubstationSchema = new mongoose.Schema({
   district_code: { type: String, required: true, ref: 'District' }
 });
 
-export default mongoose.model('GridSubstation', gridSubstationSchema);
+
+export default mongoose.models.GridSubstation || mongoose.model('GridSubstation', gridSubstationSchema, 'gridsubstations');
