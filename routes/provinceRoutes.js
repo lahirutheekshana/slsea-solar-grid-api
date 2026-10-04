@@ -1,9 +1,10 @@
 import express from "express";
+import mongoose from "mongoose";
 import Province from "../models/Province.js";
 
 const router = express.Router();
 
-
+// GET /provinces
 router.get("/", async (req, res) => {
     try{
         const provinces = await Province.find(); 
@@ -13,13 +14,19 @@ router.get("/", async (req, res) => {
     }
 });
 
+// GET /provinces/:id
 router.get("/:id", async (req, res) => {
     try{
         const { id } = req.params;
+        let province = null;
 
-        const province = await Province.findOne({
-            $or: [{ province_code: id.toUpperCase() }, { _id: id}]
-        });
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            province = await Province.findById(id);
+        }
+
+        if (!province) {
+            province = await Province.findOne({code: id.toUpperCase() });
+        }
 
         if (!province) {
             return res.status(404).json({ 
