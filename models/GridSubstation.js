@@ -7,4 +7,5 @@ const gridSubstationSchema = new mongoose.Schema({
 });
 
 
+
 export default mongoose.models.GridSubstation || mongoose.model('GridSubstation', gridSubstationSchema, 'gridsubstations');
