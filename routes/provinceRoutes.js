@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Province from "../models/Province.js";
+import District from "../models/District.js";
 
 const router = express.Router();
 
@@ -35,6 +36,26 @@ router.get("/:id", async (req, res) => {
             });
         }
         res.json(province);
+    } catch (error) {
+        res.status(500).json({ code: 'SERVER_ERROR', message: error.message });
+    }
+});
+
+// GET /provinces/:provinceId/districts
+router.get("/:provinceId/districts", async (req, res) => {
+    try{
+        const { provinceId } = req.params;
+        let targetCode = provinceId.toUpperCase();
+
+        if(mongoose.Types.ObjectId.isValid(provinceId)) {
+            const provinceDoc = await Province.findById(provinceId);
+            if(provinceDoc) {
+                targetCode = provinceDoc.code;
+            }
+        }
+
+        const districts = await District.find({ province_code: targetCode });
+        res.json(districts);
     } catch (error) {
         res.status(500).json({ code: 'SERVER_ERROR', message: error.message });
     }
