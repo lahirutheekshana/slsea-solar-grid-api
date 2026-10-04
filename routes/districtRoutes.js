@@ -1,12 +1,14 @@
 import express from 'express';
-import District from '../models/district.js';
+import mongoose from 'mongoose';
+import District from '../models/District.js';
+import GridSubstation from '../models/GridSubstation.js';
 import GenerationReading from '../models/GenerationReading.js';
 import SolarInstallation from '../models/SolarInstallation.js';
 import { authenticate, authorizeJurisdiction } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-
+// GET /districts
 router.get('/', async (req, res) => {
   try {
     const districts = await District.find();
@@ -17,13 +19,49 @@ router.get('/', async (req, res) => {
 });
 
 
+// GET /districts/:districtId/substations
+router.get("/:districtId/substations", async (req, res) => {
+    try{
+      const { districtId } = req.params;
+      let targetCode = districtId.toUpperCase();
+
+      if(mongoose.Types.ObjectId.isValid(districtId)) {
+          const districtDoc = await District.findById(districtId);
+          if(districtDoc) {
+              targetCode = districtDoc.code;
+          }
+      }
+
+      const substations = await GridSubstation.find({
+         district_code: { $regex: new RegExp(`^${targetCode}$`, 'i') }
+      });
+
+      if(!substations || substations.length === 0) {
+          return res.status(404).json({
+              code: 'NOT_FOUND',
+              message: `No grid substations found for district: ${districtId}`
+          });
+      }
+      res.status(200).json(substations);
+
+    }catch(error) {
+      res.status(500).json({ 
+        code: 'SERVER_ERROR', 
+        message: error.message });
+    }
+}
+
+
+
+)
+
 router.get(
   '/:id/generation-summary',
   authenticate,
-  authorizeJurisdiction((req) => req.params.id), // e.g., 'COL' scope check
+  authorizeJurisdiction((req) => req.params.id), 
   async (req, res) => {
     try {
-      const { id } = req.params; // e.g., 'COL'
+      const { id } = req.params; 
       const { from, to } = req.query;
 
      
