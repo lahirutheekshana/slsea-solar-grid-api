@@ -6,8 +6,6 @@ import User from '../models/User.js';
 const router = express.Router();
 
 
-
-// User / Device Login Endpoint
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;

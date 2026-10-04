@@ -5,11 +5,11 @@ import { authenticate, authorizeJurisdiction } from '../middleware/authMiddlewar
 
 const router = express.Router();
 
-// 1. GET Scoped Historical Readings (Protected with Authentication & Jurisdiction Authorization)
+
 router.get(
   '/installations/:id/readings',
   authenticate,
-  authorizeJurisdiction((req) => req.params.id.split('_')[1]), // Installation ID එකෙන් District Code එක (e.g., SOL_COL_001 -> COL) ගන්නවා
+  authorizeJurisdiction((req) => req.params.id.split('_')[1]), 
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -54,7 +54,7 @@ router.get(
   }
 );
 
-// 2. GET Latest Reading (Protected)
+
 router.get(
   '/installations/:id/readings/latest',
   authenticate,
@@ -87,7 +87,7 @@ router.get(
   }
 );
 
-// 3. POST Ingestion (Protected - Metering devices write access)
+
 router.post(
   '/installations/:id/readings',
   authenticate,
