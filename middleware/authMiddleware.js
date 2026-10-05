@@ -48,3 +48,20 @@ export const authorizeJurisdiction = (getScopeFromReq) => {
     });
   };
 };
+
+export const authorizeDevice = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+
+  if (apiKey && apiKey === process.env.DEVICE_API_KEY) {
+    return next();
+  }
+
+  if (req.user && (req.user.role === 'DEVICE' || req.user.role === 'ADMIN' || req.user.can_ingest)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    code: 'FORBIDDEN',
+    message: 'You do not have authorization to access this resource.',
+  });
+}
