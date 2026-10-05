@@ -8,4 +8,4 @@ const generationReadingSchema = new mongoose.Schema({
   voltage: { type: Number, required: true }
 });
 
-export default mongoose.model('GenerationReading', generationReadingSchema);
+export default mongoose.models.GenerationReading || mongoose.model('GenerationReading', generationReadingSchema);
