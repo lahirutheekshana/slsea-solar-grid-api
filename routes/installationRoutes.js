@@ -116,6 +116,14 @@ router.get("/:id", async (req, res) => {
         message: "Installation not found",
       });
     }
+
+    if (req.user.role !== 'ADMIN' && req.user.district_id && req.user.district_id !== installation.district_id) {
+      return res.status(403).json({
+        code: "FORBIDDEN",
+        message: `Access denied. Your scope (${req.user.district_id}) cannot access records in ${installation.district_id}.`
+      });
+    }
+
     const dataString = JSON.stringify(installation);
     const etag = crypto.createHash('md5').update(dataString).digest('hex');
 
@@ -128,7 +136,11 @@ router.get("/:id", async (req, res) => {
     res.setHeader('Etag', `"${etag}"` );
     res.status(200).json(installation);
   } catch (error) {
-    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+    res.status(500).json({ 
+      code: "SERVER_ERROR", 
+      message: error.message,
+      details: error.message
+    });
   }
 });
 
