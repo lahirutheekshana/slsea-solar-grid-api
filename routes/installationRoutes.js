@@ -16,6 +16,80 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /installations with optional query parameters for filtering
+router.get("/", async (req, res) => {
+  try {
+    const { province_id, district_id } = req.query;
+    const filter = {};
+
+    
+    if (province_id) filter.province_id = province_id;
+    if (district_id) filter.district_id = district_id;
+
+    const installations = await SolarInstallation.find(filter);
+    res.status(200).json(installations);
+  } catch (error) {
+    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  }
+});
+
+// GET /installations/:id/readings with optional query parameters for filtering and pagination
+router.get("/:id/readings", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate, page = 1, limit = 10 } = req.query;
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    let installation = await SolarInstallation.findOne({
+      $or: [
+        { installation_id: { $regex: new RegExp(`^${id}$`, "i") } },
+        { code: { $regex: new RegExp(`^${id}$`, "i") } },
+      ],
+    });
+
+    if (!installation) {
+      return res.status(404).json({ code: "NOT_FOUND", message: "Installation not found" });
+    }
+
+    const instId = installation.installation_id || installation._id;
+    const filter = {
+      $or: [
+        { installation_id: String(instId) },
+        { installation_id: String(installation._id) }
+      ]
+    };
+
+    if (startDate || endDate) {
+      filter.timestamp = {};
+      if (startDate) filter.timestamp.$gte = new Date(startDate);
+      if (endDate) filter.timestamp.$lte = new Date(endDate);
+    }
+
+    const totalReadings = await GenerationReading.countDocuments(filter);
+    const readings = await GenerationReading.find(filter)
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const totalPages = Math.ceil(totalReadings / limitNum);
+
+    res.status(200).json({
+      pagination: {
+        total_items: totalReadings,
+        current_page: pageNum,
+        limit: limitNum,
+        total_pages: totalPages
+      },
+      data: readings
+    });
+  } catch (error) {
+    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  }
+});
+
 // GET /installations/:id
 router.get("/:id", async (req, res) => {
   try {
@@ -172,6 +246,12 @@ router.get("/:id/last-reading", async (req, res) => {
 router.get("/:id/readings", async (req, res) => {
   try {
     const { id } = req.params;
+    
+
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
     let installation = null;
 
     if (mongoose.Types.ObjectId.isValid(id)) {
@@ -195,22 +275,38 @@ router.get("/:id/readings", async (req, res) => {
     }
 
     const instId = installation.installation_id || installation._id;
-
-    const readings = await GenerationReading.find({
+    const filter = {
       $or: [
         { installation_id: String(instId) },
         { installation_id: String(installation._id) }
-      ],
-    }).sort({ timestamp: -1});
+      ]
+    };
 
-    if(!readings || readings.length === 0) {
-      return res.status(404).json({
-        code: "NOT_FOUND",
-        message: "No readings found for this installation",
-      });
-    }
+    const totalReadings = await GenerationReading.countDocuments(filter);
 
-    res.status(200).json(readings);
+    const readings = await GenerationReading.find(filter)
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalPages = Math.ceil(totalReadings / limit);
+
+   const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}/${id}/readings`;
+    const nextLink = page < totalPages ? `${baseUrl}?page=${page + 1}&limit=${limit}` : null;
+    const prevLink = page > 1 ? `${baseUrl}?page=${page - 1}&limit=${limit}` : null;
+
+    res.status(200).json({
+      pagination: {
+        total_items: totalReadings,
+        current_page: page,
+        limit: limit,
+        total_pages: totalPages,
+        next: nextLink,
+        previous: prevLink
+      },
+      data: readings
+    });
+
   } catch (error) {
     res.status(500).json({
       code: "SERVER_ERROR",
