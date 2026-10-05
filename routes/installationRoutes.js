@@ -1,5 +1,6 @@
 import express from "express";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import SolarInstallation from "../models/SolarInstallation.js";
 import GenerationReading from "../models/GenerationReading.js";
 import { authenticate, authorizeJurisdiction } from '../middleware/authMiddleware.js';
@@ -115,6 +116,16 @@ router.get("/:id", async (req, res) => {
         message: "Installation not found",
       });
     }
+    const dataString = JSON.stringify(installation);
+    const etag = crypto.createHash('md5').update(dataString).digest('hex');
+
+    const clientEtag = req.headers['if-none-match'];
+
+    if (clientEtag === `"${etag}"` || clientEtag === etag) {
+      return res.status(304).send();
+    }
+
+    res.setHeader('Etag', `"${etag}"` );
     res.status(200).json(installation);
   } catch (error) {
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
