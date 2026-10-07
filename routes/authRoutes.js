@@ -5,6 +5,43 @@ import User from '../models/User.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Authentication
+ *   description: User Authentication & JWT Token Management API
+ */
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Authenticate user and issue a JWT token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "ceb_admin"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: Authentication successful, returns JWT bearer token and user profile
+ *       401:
+ *         description: Invalid username or password
+ *       500:
+ *         description: Internal server error
+ */
 
 router.post('/login', async (req, res) => {
   try {
