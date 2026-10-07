@@ -5,6 +5,61 @@ import { authenticate, authorizeJurisdiction } from '../middleware/authMiddlewar
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Readings
+ *   description: Solar Generation Readings Management
+ */
+
+/**
+ * @swagger
+ * /api/installations/{id}/readings:
+ *   post:
+ *     summary: Ingest a new generation reading for an installation
+ *     tags: [Readings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Installation ID or unique code
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - instantaneous_kw
+ *               - cumulative_kwh
+ *             properties:
+ *               instantaneous_kw:
+ *                 type: number
+ *                 example: 4.5
+ *               cumulative_kwh:
+ *                 type: number
+ *                 example: 1250.85
+ *               voltage:
+ *                 type: number
+ *                 example: 230
+ *               timestamp:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2026-10-07T10:00:00Z"
+ *     responses:
+ *       201:
+ *         description: Generation reading ingested successfully
+ *       400:
+ *         description: Validation error (missing required fields)
+ *       404:
+ *         description: Installation not found
+ *       500:
+ *         description: Server error
+ */
 
 //POST ingest generation reading
 router.post(
@@ -60,6 +115,65 @@ router.post(
     }
   }
 );
+
+/**
+ * @swagger
+ * /api/installations/{id}/readings:
+ *   get:
+ *     summary: Retrieve paginated generation readings for an installation
+ *     tags: [Readings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Installation ID or unique code
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date filter (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date filter (YYYY-MM-DD)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           default: timestamp
+ *         description: Field to sort by
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of generation readings with pagination metadata
+ *       404:
+ *         description: Installation not found
+ *       500:
+ *         description: Server error
+ */
 
 // GET /installations/:id/readings (With Pagination, Time Window & Sorting)
 router.get("/:id/readings", async (req, res) => {

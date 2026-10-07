@@ -8,6 +8,26 @@ import { authenticate, authorizeJurisdiction } from '../middleware/authMiddlewar
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Districts
+ *   description: District & Grid Substation Management API
+ */
+
+/**
+ * @swagger
+ * /api/districts:
+ *   get:
+ *     summary: Get all districts
+ *     tags: [Districts]
+ *     responses:
+ *       200:
+ *         description: List of all districts retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+
 // GET /districts
 router.get('/', async (req, res) => {
   try {
@@ -18,6 +38,28 @@ router.get('/', async (req, res) => {
   }
 });
 
+
+/**
+ * @swagger
+ * /api/districts/{districtId}/substations:
+ *   get:
+ *     summary: Get grid substations for a specific district
+ *     tags: [Districts]
+ *     parameters:
+ *       - in: path
+ *         name: districtId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: District ID or code
+ *     responses:
+ *       200:
+ *         description: List of grid substations for the district retrieved successfully
+ *       404:
+ *         description: District not found
+ *       500:
+ *         description: Internal server error
+ */
 
 // GET /districts/:districtId/substations
 router.get("/:districtId/substations", async (req, res) => {
