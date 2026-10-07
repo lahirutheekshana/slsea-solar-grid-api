@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-
 import Province from './models/Province.js';
 import District from './models/District.js';
 import GridSubstation from './models/GridSubstation.js';
