@@ -38,6 +38,83 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/districts/{districtId}:
+ *   get:
+ *     summary: Retrieve single district details by Code or ID
+ *     description: Gets detailed information about a specific district using its unique code (e.g., COL, KAN) or MongoDB ObjectId.
+ *     tags:
+ *       - Districts
+ *     parameters:
+ *       - in: path
+ *         name: districtId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: KAN
+ *         description: District code (e.g., KAN, COL) or MongoDB ObjectId
+ *     responses:
+ *       200:
+ *         description: District details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                   example: 6ac644cce27199c16b9bcf40
+ *                 code:
+ *                   type: string
+ *                   example: KAN
+ *                 name:
+ *                   type: string
+ *                   example: Kandy
+ *                 province_code:
+ *                   type: string
+ *                   example: CP
+ *       404:
+ *         description: District not found
+ *       500:
+ *         description: Server error failed to retrieve district
+ */
+
+// GET /districts/:districtId
+router.get("/:districtId", async (req, res) => {
+  try {
+    const { districtId } = req.params;
+    let district;
+
+    
+    if (mongoose.Types.ObjectId.isValid(districtId)) {
+      district = await District.findById(districtId);
+    }
+
+    
+    if (!district) {
+      district = await District.findOne({
+        code: { $regex: new RegExp(`^${districtId.trim()}$`, 'i') }
+      });
+    }
+
+    if (!district) {
+      return res.status(404).json({
+        code: 'NOT_FOUND',
+        message: `District not found with identifier: ${districtId}`
+      });
+    }
+
+    res.status(200).json(district);
+
+  } catch (error) {
+    res.status(500).json({
+      code: 'SERVER_ERROR',
+      message: 'Failed to retrieve district details',
+      details: error.message
+    });
+  }
+});
 
 /**
  * @swagger
@@ -97,6 +174,91 @@ router.get("/:districtId/substations", async (req, res) => {
 
 )
 
+/**
+ * @swagger
+ * /api/districts/{id}/generation-summary:
+ *   get:
+ *     summary: Retrieve aggregate solar generation summary for a district
+ *     description: Computes aggregate generation metrics (total, average, min/max power, and energy) across all installations within a specific district. Supports time-window filtering.
+ *     tags:
+ *       - Districts
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: COL
+ *         description: District code (e.g., COL, KAN, GAL)
+ *       - in: query
+ *         name: from
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         example: "2026-01-01T00:00:00.000Z"
+ *         description: Start timestamp for time window filter
+ *       - in: query
+ *         name: to
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         example: "2026-12-31T23:59:59.999Z"
+ *         description: End timestamp for time window filter
+ *     responses:
+ *       200:
+ *         description: Aggregate generation summary retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 district_code:
+ *                   type: string
+ *                   example: COL
+ *                 total_installations:
+ *                   type: integer
+ *                   example: 12
+ *                 time_frame:
+ *                   type: object
+ *                   properties:
+ *                     from:
+ *                       type: string
+ *                       example: "2026-01-01T00:00:00.000Z"
+ *                     to:
+ *                       type: string
+ *                       example: "2026-12-31T23:59:59.999Z"
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     total_readings_count:
+ *                       type: integer
+ *                       example: 450
+ *                     total_instantaneous_kw:
+ *                       type: number
+ *                       example: 1540.50
+ *                     total_cumulative_kwh:
+ *                       type: number
+ *                       example: 98450.25
+ *                     avg_instantaneous_kw:
+ *                       type: number
+ *                       example: 3.42
+ *                     max_instantaneous_kw:
+ *                       type: number
+ *                       example: 10.50
+ *                     min_instantaneous_kw:
+ *                       type: number
+ *                       example: 0.00
+ *       404:
+ *         description: No installations found for the given district code
+ *       500:
+ *         description: Server error failed to generate summary
+ */
+
+// GET /districts/:id/generation-summary
 router.get(
   '/:id/generation-summary',
   authenticate,
