@@ -13,7 +13,7 @@ dotenv.config();
 const seedDatabase = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('🔄 Cleaning existing collections...');
+    console.log(' Cleaning existing collections...');
 
     await Province.deleteMany({});
     await District.deleteMany({});
@@ -22,7 +22,7 @@ const seedDatabase = async () => {
     await GenerationReading.deleteMany({});
     await User.deleteMany({});
 
-    console.log('🌱 Inserting Provinces & Districts...');
+    console.log(' Inserting Provinces & Districts...');
     
     // 1. 9 Provinces
     const provincesData = [
@@ -68,7 +68,7 @@ const seedDatabase = async () => {
     ];
     await District.insertMany(districtsData);
 
-    console.log('⚡ Inserting Grid Substations & 200+ Solar Sites...');
+    console.log(' Inserting Grid Substations & 200+ Solar Sites...');
     
     // 3. Grid Substations & 200+ Installations
     const substations = [];
@@ -98,7 +98,7 @@ const seedDatabase = async () => {
     await GridSubstation.insertMany(substations);
     await SolarInstallation.insertMany(installations);
 
-    console.log('📈 Generating Generation Readings (Time Series Data)...');
+    console.log(' Generating Generation Readings (Time Series Data)...');
 
     // 4. Time Series Generation Readings (Diurnal curve - daytime high, night zero)
     const readings = [];
@@ -132,7 +132,7 @@ const seedDatabase = async () => {
 
     await GenerationReading.insertMany(readings);
 
-    console.log('👤 Inserting Users...');
+    console.log(' Inserting Users...');
     await User.insertMany([
       { username: 'officer_colombo', password: 'password123', role: 'READ_CLIENT', jurisdiction_scope: 'COL' },
       { username: 'officer_western', password: 'password123', role: 'READ_CLIENT', jurisdiction_scope: 'WP' },
@@ -140,10 +140,10 @@ const seedDatabase = async () => {
       { username: 'metering_device_01', password: 'devicepass123', role: 'WRITE_CLIENT', jurisdiction_scope: 'ALL' }
     ]);
 
-    console.log('✅ Seed Data Created Successfully!');
+    console.log('Seed Data Created Successfully!');
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error Seeding Data:', error);
+    console.error(' Error Seeding Data:', error);
     process.exit(1);
   }
 };
