@@ -7,6 +7,31 @@ import { authenticate, authorizeJurisdiction } from '../middleware/authMiddlewar
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * /api/installations:
+ *   get:
+ *     summary: Retrieve all solar installations (With optional Jurisdiction filtering)
+ *     tags:
+ *       - Installations
+ *     parameters:
+ *       - in: query
+ *         name: province_id
+ *         schema:
+ *           type: string
+ *         description: Filter installations by Province ID
+ *       - in: query
+ *         name: district_id
+ *         schema:
+ *           type: string
+ *         description: Filter installations by District ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved solar installations list
+ *       500:
+ *         description: Internal Server Error
+ */
+
 // GET /installations
 router.get("/", async (req, res) => {
   try {
@@ -16,6 +41,29 @@ router.get("/", async (req, res) => {
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
   }
 });
+
+/**
+ * @openapi
+ * /api/installations/{id}:
+ *   get:
+ *     summary: Get installation details by ID (Supports Conditional GET / ETag)
+ *     tags:
+ *       - Installations
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Solar Installation ID or Code
+ *     responses:
+ *       200:
+ *         description: Installation details retrieved successfully
+ *       304:
+ *         description: Not Modified (Conditional GET matching ETag)
+ *       404:
+ *         description: Installation not found
+ */
 
 // GET /installations with optional query parameters for filtering
 router.get("/", async (req, res) => {
@@ -33,6 +81,8 @@ router.get("/", async (req, res) => {
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
   }
 });
+
+
 
 // GET /installations/:id/readings with optional query parameters for filtering and pagination
 router.get("/:id/readings", async (req, res) => {
@@ -144,6 +194,26 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/installations/{id}/composite:
+ *   get:
+ *     summary: Retrieve composite metrics and latest reading for an installation
+ *     tags:
+ *       - Installations
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Composite analytics retrieved successfully
+ *       404:
+ *         description: Installation not found
+ */
+
 // GET /installations/:id/composite
 router.get("/:id/composite", async (req, res) => {
   try {
@@ -220,6 +290,26 @@ router.get("/:id/composite", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/installations/{id}/last-reading:
+ *   get:
+ *     summary: Retrieve the latest generation reading for an installation
+ *     tags:
+ *       - Installations
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Latest reading retrieved successfully
+ *       404:
+ *         description: Installation not found
+ */
+
 // GET /installations/:id/last-reading
 router.get("/:id/last-reading", async (req, res) => {
   try {
@@ -264,6 +354,44 @@ router.get("/:id/last-reading", async (req, res) => {
     });
   }
 });
+
+/**
+ * @openapi
+ * /api/installations/{id}/readings:
+ *   get:
+ *     summary: Retrieve historical generation readings (Pagination & Time Window Filter)
+ *     tags:
+ *       - Readings
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *         description: Filter readings starting from ISO Date string
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *         description: Filter readings up to ISO Date string
+ *     responses:
+ *       200:
+ *         description: Readings history retrieved successfully
+ */
 
 // GET /installations/:id/readings
 router.get("/:id/readings", async (req, res) => {
@@ -338,6 +466,50 @@ router.get("/:id/readings", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/installations/{id}:
+ *   put:
+ *     summary: Fully update a solar installation (Requires JWT)
+ *     security:
+ *       - bearerAuth: []
+ *     tags:
+ *       - Installations
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - owner_name
+ *               - capacity_kw
+ *               - grid_substation_code
+ *             properties:
+ *               name:
+ *                 type: string
+ *               owner_name:
+ *                 type: string
+ *               capacity_kw:
+ *                 type: number
+ *               grid_substation_code:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Installation fully updated
+ *       400:
+ *         description: Validation Error
+ *       401:
+ *         description: Unauthorized
+ */
+
 // PUT /installations/:id (Full Update)
 router.put(
   '/:id',
@@ -382,6 +554,26 @@ router.put(
   }
 );
 
+/**
+ * @openapi
+ * /api/installations/{id}:
+ *   patch:
+ *     summary: Partially update a solar installation (Requires JWT)
+ *     security:
+ *       - bearerAuth: []
+ *     tags:
+ *       - Installations
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Installation partially updated
+ */
+
 // PATCH /installations/:id (Partial Update)
 router.patch(
   '/:id',
@@ -425,6 +617,26 @@ router.patch(
     }
   }
 );
+
+/**
+ * @openapi
+ * /api/installations/{id}:
+ *   delete:
+ *     summary: Delete a solar installation (Requires JWT)
+ *     security:
+ *       - bearerAuth: []
+ *     tags:
+ *       - Installations
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Installation deleted successfully
+ */
 
 // DELETE /installations/:id (Delete Resource)
 router.delete(
