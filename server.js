@@ -7,8 +7,6 @@ import districtRoutes from "./routes/districtRoutes.js";
 import installationRoutes from "./routes/installationRoutes.js";
 import readingRoutes from "./routes/readingRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
-import swaggerUi from 'swagger-ui-express';
-import swaggerJsdoc from 'swagger-jsdoc';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { setupSwagger } from "./swagger/swagger.js";
@@ -43,5 +41,5 @@ app.use("/api/auth", authRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(` Server running on port ${PORT}`);
-  console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
+  console.log(` API Documentation available at http://localhost:${PORT}/api-docs`);
 });
