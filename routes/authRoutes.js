@@ -30,7 +30,7 @@ const router = express.Router();
  *             properties:
  *               username:
  *                 type: string
- *                 example: "ceb_admin"
+ *                 example: "admin"
  *               password:
  *                 type: string
  *                 example: "password123"
