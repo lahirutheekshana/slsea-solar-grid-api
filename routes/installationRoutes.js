@@ -38,12 +38,56 @@ router.get("/", async (req, res) => {
     const installations = await SolarInstallation.find();
     res.json(installations);
   } catch (error) {
+    res.status(500).json({ 
+      code: "SERVER_ERROR", 
+      message: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/installations:
+ *   get:
+ *     summary: Get all installations with optional filtering
+ *     tags:
+ *       - Installations
+ *     parameters:
+ *       - in: query
+ *         name: province_id
+ *         schema:
+ *           type: string
+ *         description: Filter installations by Province ID
+ *       - in: query
+ *         name: district_id
+ *         schema:
+ *           type: string
+ *         description: Filter installations by District ID
+ *     responses:
+ *       200:
+ *         description: List of installations retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+
+// GET /installations with optional query parameters for filtering
+router.get("/", async (req, res) => {
+  try {
+    const { province_id, district_id } = req.query;
+    const filter = {};
+
+    
+    if (province_id) filter.province_id = province_id;
+    if (district_id) filter.district_id = district_id;
+
+    const installations = await SolarInstallation.find(filter);
+    res.status(200).json(installations);
+  } catch (error) {
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
   }
 });
 
 /**
- * @openapi
+ * @swagger
  * /api/installations/{id}:
  *   get:
  *     summary: Get installation details by ID (Supports Conditional GET / ETag)
@@ -64,82 +108,6 @@ router.get("/", async (req, res) => {
  *       404:
  *         description: Installation not found
  */
-
-// GET /installations with optional query parameters for filtering
-router.get("/", async (req, res) => {
-  try {
-    const { province_id, district_id } = req.query;
-    const filter = {};
-
-    
-    if (province_id) filter.province_id = province_id;
-    if (district_id) filter.district_id = district_id;
-
-    const installations = await SolarInstallation.find(filter);
-    res.status(200).json(installations);
-  } catch (error) {
-    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
-  }
-});
-
-
-
-// GET /installations/:id/readings with optional query parameters for filtering and pagination
-router.get("/:id/readings", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { startDate, endDate, page = 1, limit = 10 } = req.query;
-
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
-
-    let installation = await SolarInstallation.findOne({
-      $or: [
-        { installation_id: { $regex: new RegExp(`^${id}$`, "i") } },
-        { code: { $regex: new RegExp(`^${id}$`, "i") } },
-      ],
-    });
-
-    if (!installation) {
-      return res.status(404).json({ code: "NOT_FOUND", message: "Installation not found" });
-    }
-
-    const instId = installation.installation_id || installation._id;
-    const filter = {
-      $or: [
-        { installation_id: String(instId) },
-        { installation_id: String(installation._id) }
-      ]
-    };
-
-    if (startDate || endDate) {
-      filter.timestamp = {};
-      if (startDate) filter.timestamp.$gte = new Date(startDate);
-      if (endDate) filter.timestamp.$lte = new Date(endDate);
-    }
-
-    const totalReadings = await GenerationReading.countDocuments(filter);
-    const readings = await GenerationReading.find(filter)
-      .sort({ timestamp: -1 })
-      .skip(skip)
-      .limit(limitNum);
-
-    const totalPages = Math.ceil(totalReadings / limitNum);
-
-    res.status(200).json({
-      pagination: {
-        total_items: totalReadings,
-        current_page: pageNum,
-        limit: limitNum,
-        total_pages: totalPages
-      },
-      data: readings
-    });
-  } catch (error) {
-    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
-  }
-});
 
 // GET /installations/:id
 router.get("/:id", async (req, res) => {
