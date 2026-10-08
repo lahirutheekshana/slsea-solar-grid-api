@@ -38,7 +38,7 @@ This API provides comprehensive endpoints for managing solar installations, grid
         description: "Development Server",
       },
       {
-        url: "https://slsea-solar-api.onrender.com", 
+        url: "https://slsea-solar-grid-api.onrender.com", 
         description: "Production Live Server",
       },
     ],
