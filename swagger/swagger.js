@@ -34,12 +34,12 @@ This API provides comprehensive endpoints for managing solar installations, grid
       } },
     servers: [
       {
-        url: `http://localhost:${process.env.PORT || 5000}`,
-        description: "Development Server",
-      },
-      {
         url: "https://slsea-solar-grid-api.onrender.com", 
         description: "Production Live Server",
+      },
+      {
+        url: `http://localhost:${process.env.PORT || 5000}`,
+        description: "Development Server",
       },
     ],
 
