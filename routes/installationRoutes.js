@@ -592,10 +592,11 @@ router.put(
 );
 
 /**
- * @openapi
+ * @swagger
  * /api/installations/{id}:
  *   patch:
  *     summary: Partially update a solar installation (Requires JWT)
+ *     description: Updates specific fields of an existing solar installation without replacing the entire object.
  *     security:
  *       - bearerAuth: []
  *     tags:
@@ -606,20 +607,61 @@ router.put(
  *         required: true
  *         schema:
  *           type: string
+ *         example: "SOL_GAM_007"
+ *         description: Solar Installation ID, Code, or MongoDB ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               owner_name:
+ *                 type: string
+ *                 example: "Solar Producer Gampaha #7 Updated"
+ *               capacity_kw:
+ *                 type: number
+ *                 example: 45
+ *               substation_code:
+ *                 type: string
+ *                 example: "GSS_GAM_01"
+ *               meter_id:
+ *                 type: string
+ *                 example: "MTR-SOL_GAM_007"
+ *               province_id:
+ *                 type: string
+ *                 example: "WP"
+ *               district_id:
+ *                 type: string
+ *                 example: "GAM"
  *     responses:
  *       200:
- *         description: Installation partially updated
+ *         description: Installation partially updated successfully
+ *       400:
+ *         description: Validation Error - Request body is empty or invalid
+ *       401:
+ *         description: Unauthorized - Missing or invalid JWT token
+ *       403:
+ *         description: Forbidden - Access denied due to jurisdiction scope restriction
+ *       404:
+ *         description: Installation not found
+ *       500:
+ *         description: Internal Server Error
  */
 
-// PATCH /installations/:id (Partial Update)
+// PATCH /installations/:id (Partially Update Solar Installation)
 router.patch(
   "/:id",
   authenticate,
-  authorizeJurisdiction((req) => req.params.id.split("_")[1]),
+  authorizeJurisdiction((req) => {
+    
+    const parts = req.params.id.split("_");
+    return parts.length > 1 ? parts[1] : req.params.id;
+  }),
   async (req, res) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
+      const updates = { ...req.body };
 
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({
@@ -628,10 +670,19 @@ router.patch(
         });
       }
 
-      const updatedInstallation = await SolarInstallation.findOneAndUpdate(
-        { $or: [{ installation_id: id }, { code: id }] },
+      if (updates.grid_substation_code && !updates.substation_code) {
+        updates.substation_code = updates.grid_substation_code;
+        delete updates.grid_substation_code;
+      }
+
+      const queryFilter = mongoose.Types.ObjectId.isValid(id)
+        ? { $or: [{ _id: id }, { installation_id: id }, { code: id }] }
+        : { $or: [{ installation_id: id }, { code: id }] };
+
+       const updatedInstallation = await SolarInstallation.findOneAndUpdate(
+        queryFilter,
         { $set: updates },
-        { new: true, runValidators: true },
+        { new: true, runValidators: true }
       );
 
       if (!updatedInstallation) {
@@ -652,7 +703,7 @@ router.patch(
         details: error.message,
       });
     }
-  },
+  }
 );
 
 /**
