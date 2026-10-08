@@ -23,6 +23,10 @@ app.use(cors());
 setupSwagger(app);
 
 
+app.get('/', (req, res) => {
+  res.redirect('/api-docs');
+});
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
