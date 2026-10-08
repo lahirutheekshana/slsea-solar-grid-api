@@ -83,35 +83,45 @@ router.get("/", async (req, res) => {
  * @swagger
  * /api/installations/{id}:
  *   get:
- *     summary: Get installation details by ID (Supports Conditional GET / ETag)
+ *     summary: Get installation details by ID (Supports Conditional GET / ETag & Auth)
  *     tags:
  *       - Installations
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: Solar Installation ID or Code
+ *         description: Solar Installation ID or MongoDB ObjectId
  *     responses:
  *       200:
  *         description: Installation details retrieved successfully
  *       304:
  *         description: Not Modified (Conditional GET matching ETag)
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       403:
+ *         description: Forbidden - Access denied for user district jurisdiction scope
  *       404:
  *         description: Installation not found
+ *       500:
+ *         description: Internal Server Error
  */
 
 // GET /installations/:id
-router.get("/:id", async (req, res) => {
+router.get("/:id", authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     let installation = null;
 
+    
     if (mongoose.Types.ObjectId.isValid(id)) {
       installation = await SolarInstallation.findById(id);
     }
 
+    
     if (!installation) {
       installation = await SolarInstallation.findOne({
         $or: [
@@ -121,6 +131,7 @@ router.get("/:id", async (req, res) => {
       });
     }
 
+    
     if (!installation) {
       return res.status(404).json({
         code: "NOT_FOUND",
@@ -128,28 +139,32 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    if (
-      req.user.role !== "ADMIN" &&
-      req.user.district_id &&
-      req.user.district_id !== installation.district_id
-    ) {
-      return res.status(403).json({
-        code: "FORBIDDEN",
-        message: `Access denied. Your scope (${req.user.district_id}) cannot access records in ${installation.district_id}.`,
-      });
+    
+    const userRole = req.user?.role;
+    const userDistrict = req.user?.district_id || req.user?.district_code;
+    const instDistrict = installation.district_id || installation.district_code;
+
+    if (userRole && userRole !== "ADMIN" && userDistrict && instDistrict) {
+      if (userDistrict !== instDistrict) {
+        return res.status(403).json({
+          code: "FORBIDDEN",
+          message: `Access denied. Your scope (${userDistrict}) cannot access records in ${instDistrict}.`,
+        });
+      }
     }
 
+    
     const dataString = JSON.stringify(installation);
     const etag = crypto.createHash("md5").update(dataString).digest("hex");
-
     const clientEtag = req.headers["if-none-match"];
 
     if (clientEtag === `"${etag}"` || clientEtag === etag) {
-      return res.status(304).send();
+      return res.status(304).send(); // Not Modified
     }
 
     res.setHeader("Etag", `"${etag}"`);
     res.status(200).json(installation);
+
   } catch (error) {
     res.status(500).json({
       code: "SERVER_ERROR",
@@ -432,10 +447,11 @@ router.get("/:id/readings", async (req, res) => {
 });
 
 /**
- * @openapi
+ * @swagger
  * /api/installations/{id}:
  *   put:
  *     summary: Fully update a solar installation (Requires JWT)
+ *     description: Updates an existing solar installation by ID using full resource payload matching the database schema.
  *     security:
  *       - bearerAuth: []
  *     tags:
@@ -446,6 +462,8 @@ router.get("/:id/readings", async (req, res) => {
  *         required: true
  *         schema:
  *           type: string
+ *         example: "SOL_GAM_007"
+ *         description: Solar Installation ID, Code, or MongoDB ObjectId
  *     requestBody:
  *       required: true
  *       content:
@@ -453,64 +471,103 @@ router.get("/:id/readings", async (req, res) => {
  *           schema:
  *             type: object
  *             required:
- *               - name
  *               - owner_name
  *               - capacity_kw
- *               - grid_substation_code
+ *               - substation_code
  *             properties:
- *               name:
- *                 type: string
  *               owner_name:
  *                 type: string
+ *                 example: "Solar Producer Gampaha #7"
+ *                 description: Owner or producer name of the installation
  *               capacity_kw:
  *                 type: number
- *               grid_substation_code:
+ *                 example: 35
+ *                 description: System capacity in Kilowatts (kW)
+ *               substation_code:
  *                 type: string
+ *                 example: "GSS_GAM_01"
+ *                 description: Grid substation code associated with the installation
+ *               meter_id:
+ *                 type: string
+ *                 example: "MTR-SOL_GAM_007"
+ *                 description: Unique identification string for the connected meter
+ *               province_id:
+ *                 type: string
+ *                 example: "WP"
+ *                 description: Province code or ID
+ *               district_id:
+ *                 type: string
+ *                 example: "GAM"
+ *                 description: District code or ID
  *     responses:
  *       200:
- *         description: Installation fully updated
+ *         description: Installation fully updated successfully
  *       400:
- *         description: Validation Error
+ *         description: Validation Error - Missing required fields (owner_name, capacity_kw, substation_code)
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized - Missing or invalid JWT Bearer token
+ *       403:
+ *         description: Forbidden - Access denied due to jurisdiction scope restriction
+ *       404:
+ *         description: Installation not found with the given ID
+ *       500:
+ *         description: Internal Server Error
  */
 
 // PUT /installations/:id (Full Update)
 router.put(
   "/:id",
   authenticate,
-  authorizeJurisdiction((req) => req.params.id.split("_")[1]),
+  authorizeJurisdiction((req) => {
+    
+    const parts = req.params.id.split("_");
+    return parts.length > 1 ? parts[1] : req.params.id;
+  }),
   async (req, res) => {
     try {
       const { id } = req.params;
       const {
-        name,
         owner_name,
         capacity_kw,
-        grid_substation_code,
+        substation_code,
+        grid_substation_code, // DB Field name Compatibility
+        meter_id,
         province_id,
         district_id,
       } = req.body;
 
-      if (!name || !owner_name || !capacity_kw || !grid_substation_code) {
+      
+      const finalSubstationCode = substation_code || grid_substation_code;
+
+      
+      if (!owner_name || capacity_kw === undefined || !finalSubstationCode) {
         return res.status(400).json({
           code: "VALIDATION_ERROR",
           message:
-            "PUT requires all resource fields (name, owner_name, capacity_kw, grid_substation_code) for a full update.",
+            "PUT requires all required resource fields (owner_name, capacity_kw, substation_code) for a full update.",
         });
       }
 
+      
+      const queryFilter = mongoose.Types.ObjectId.isValid(id)
+        ? { $or: [{ _id: id }, { installation_id: id }, { code: id }] }
+        : { $or: [{ installation_id: id }, { code: id }] };
+
+      
+      const updateData = {
+        owner_name,
+        capacity_kw: Number(capacity_kw),
+        substation_code: finalSubstationCode,
+      };
+
+      if (meter_id) updateData.meter_id = meter_id;
+      if (province_id) updateData.province_id = province_id;
+      if (district_id) updateData.district_id = district_id;
+
       const updatedInstallation = await SolarInstallation.findOneAndUpdate(
-        { $or: [{ installation_id: id }, { code: id }] },
-        {
-          name,
-          owner_name,
-          capacity_kw,
-          grid_substation_code,
-          province_id,
-          district_id,
-        },
-        { new: true, runValidators: true },
+        queryFilter,
+        updateData,
+        { new: true, runValidators: true }
       );
 
       if (!updatedInstallation) {
@@ -531,7 +588,7 @@ router.put(
         details: error.message,
       });
     }
-  },
+  }
 );
 
 /**
