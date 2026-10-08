@@ -128,19 +128,8 @@ router.post(
  *         required: true
  *         schema:
  *           type: string
- *         description: Installation ID or unique code
- *       - in: query
- *         name: startDate
- *         schema:
- *           type: string
- *           format: date
- *         description: Start date filter (YYYY-MM-DD)
- *       - in: query
- *         name: endDate
- *         schema:
- *           type: string
- *           format: date
- *         description: End date filter (YYYY-MM-DD)
+ *         example: "SOL_GAM_007"
+ *         description: Installation ID, Code, or MongoDB ObjectId
  *       - in: query
  *         name: page
  *         schema:
@@ -153,6 +142,20 @@ router.post(
  *           type: integer
  *           default: 10
  *         description: Number of items per page
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         example: "2026-10-01"
+ *         description: Filter readings starting from date (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         example: "2026-10-08"
+ *         description: Filter readings up to date (YYYY-MM-DD)
  *       - in: query
  *         name: sort
  *         schema:
@@ -181,23 +184,24 @@ router.get("/:id/readings", async (req, res) => {
     const { id } = req.params;
     const { startDate, endDate, page = 1, limit = 10, sort = 'timestamp', order = 'desc' } = req.query;
 
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
     const skip = (pageNum - 1) * limitNum;
 
     
-    let installation = await SolarInstallation.findOne({
-      $or: [
-        { installation_id: { $regex: new RegExp(`^${id}$`, "i") } },
-        { code: { $regex: new RegExp(`^${id}$`, "i") } },
-      ],
-    });
+    const queryFilter = mongoose.Types.ObjectId.isValid(id)
+      ? { $or: [{ _id: id }, { installation_id: {$regex: new RegExp(`^${id}$`, "i") } }, { code: { $regex: new RegExp(`^${id}$`, "i") } }] }
+      : { $or: [{ installation_id: {$regex: new RegExp(`^${id}$`, "i") } }, { code: { $regex: new RegExp(`^${id}$`, "i") } }] };
+
+    const installation = await SolarInstallation.findOne(queryFilter);
 
     if (!installation) {
       return res.status(404).json({ code: "NOT_FOUND", message: "Installation not found" });
     }
 
     const instId = installation.installation_id || installation._id;
+
+    
     const filter = {
       $or: [
         { installation_id: String(instId) },
@@ -205,25 +209,32 @@ router.get("/:id/readings", async (req, res) => {
       ]
     };
 
+    
     if (startDate || endDate) {
       filter.timestamp = {};
-      if (startDate) filter.timestamp.$gte = new Date(startDate);
-      if (endDate) filter.timestamp.$lte = new Date(endDate);
+      if (startDate) {
+        filter.timestamp.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); 
+        filter.timestamp.$lte = end;
+      }
     }
 
-    const sortOrder = order.toLowerCase() === 'asc' ? 1 : -1;
+    
+    const sortOrder = String(order).toLowerCase() === 'asc' ? 1 : -1;
     const sortOptions = {};
     sortOptions[sort] = sortOrder;
 
-    const totalReadings = await GenerationReading.countDocuments(filter);
     
-
+    const totalReadings = await GenerationReading.countDocuments(filter);
     const readings = await GenerationReading.find(filter)
       .sort(sortOptions)
       .skip(skip)
       .limit(limitNum);
 
-    const totalPages = Math.ceil(totalReadings / limitNum);
+    const totalPages = Math.ceil(totalReadings / limitNum) || 1;
 
     res.status(200).json({
       pagination: {
@@ -234,65 +245,7 @@ router.get("/:id/readings", async (req, res) => {
       },
       sorting: {
         sort_by: sort,
-        order: order
-      },
-      data: readings
-    });
-  } catch (error) {
-    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
-  }
-});
-
-
-// GET /installations/:id/readings with optional query parameters for filtering and pagination
-router.get("/:id/readings", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { startDate, endDate, page = 1, limit = 10 } = req.query;
-
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
-
-    let installation = await SolarInstallation.findOne({
-      $or: [
-        { installation_id: { $regex: new RegExp(`^${id}$`, "i") } },
-        { code: { $regex: new RegExp(`^${id}$`, "i") } },
-      ],
-    });
-
-    if (!installation) {
-      return res.status(404).json({ code: "NOT_FOUND", message: "Installation not found" });
-    }
-
-    const instId = installation.installation_id || installation._id;
-    const filter = {
-      $or: [
-        { installation_id: String(instId) },
-        { installation_id: String(installation._id) }
-      ]
-    };
-
-    if (startDate || endDate) {
-      filter.timestamp = {};
-      if (startDate) filter.timestamp.$gte = new Date(startDate);
-      if (endDate) filter.timestamp.$lte = new Date(endDate);
-    }
-
-    const totalReadings = await GenerationReading.countDocuments(filter);
-    const readings = await GenerationReading.find(filter)
-      .sort({ timestamp: -1 })
-      .skip(skip)
-      .limit(limitNum);
-
-    const totalPages = Math.ceil(totalReadings / limitNum);
-
-    res.status(200).json({
-      pagination: {
-        total_items: totalReadings,
-        current_page: pageNum,
-        limit: limitNum,
-        total_pages: totalPages
+        order: String(order).toLowerCase()
       },
       data: readings
     });
