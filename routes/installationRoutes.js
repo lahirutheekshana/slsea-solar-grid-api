@@ -446,6 +446,141 @@ router.get("/:id/readings", async (req, res) => {
   }
 });
 
+
+/**
+ * @swagger
+ * /api/installations:
+ *   post:
+ *     summary: Create a new solar installation (Requires JWT & Jurisdiction Check)
+ *     description: Creates a new solar installation entry in the database with strict payload validation.
+ *     security:
+ *       - bearerAuth: []
+ *     tags:
+ *       - Installations
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - installation_id
+ *               - owner_name
+ *               - capacity_kw
+ *               - substation_code
+ *             properties:
+ *               installation_id:
+ *                 type: string
+ *                 example: "SOL_GAM_008"
+ *                 description: Unique Solar Installation ID
+ *               owner_name:
+ *                 type: string
+ *                 example: "Solar Producer Gampaha #8"
+ *                 description: Owner or producer name
+ *               capacity_kw:
+ *                 type: number
+ *                 example: 30
+ *                 description: System capacity in Kilowatts (kW)
+ *               substation_code:
+ *                 type: string
+ *                 example: "GSS_GAM_01"
+ *                 description: Grid Substation Code
+ *               meter_id:
+ *                 type: string
+ *                 example: "MTR-SOL_GAM_008"
+ *                 description: Connected meter identification
+ *               province_id:
+ *                 type: string
+ *                 example: "WP"
+ *               district_id:
+ *                 type: string
+ *                 example: "GAM"
+ *     responses:
+ *       201:
+ *         description: Installation created successfully
+ *       400:
+ *         description: Validation Error or Duplicate installation_id
+ *       401:
+ *         description: Unauthorized - Missing or invalid JWT token
+ *       403:
+ *         description: Forbidden - Access denied due to jurisdiction scope restriction
+ *       500:
+ *         description: Internal Server Error
+ */
+
+// POST /installations (Create New Installation)
+router.post(
+  "/",
+  authenticate,
+  authorizeJurisdiction((req) => {
+    const { installation_id, district_id } = req.body;
+    if (district_id) return district_id;
+    if (installation_id) {
+      const parts = installation_id.split("_");
+      return parts.length > 1 ? parts[1] : installation_id;
+    }
+    return null;
+  }),
+  async (req, res) => {
+    try {
+      const {
+        installation_id,
+        owner_name,
+        capacity_kw,
+        substation_code,
+        grid_substation_code, 
+        meter_id,
+        province_id,
+        district_id,
+      } = req.body;
+
+      const finalSubstationCode = substation_code || grid_substation_code;
+
+      if (!installation_id || !owner_name || capacity_kw === undefined || !finalSubstationCode) {
+        return res.status(400).json({
+          code: "VALIDATION_ERROR",
+          message:
+            "Missing required fields: installation_id, owner_name, capacity_kw, and substation_code are required.",
+        });
+      }
+
+       const existingInstallation = await SolarInstallation.findOne({
+        $or: [{ installation_id }, { code: installation_id }],
+      });
+
+      if (existingInstallation) {
+        return res.status(400).json({
+          code: "DUPLICATE_ERROR",
+          message: `Solar installation with ID '${installation_id}' already exists.`,
+        });
+      }
+
+      const newInstallation = new SolarInstallation({
+        installation_id,
+        owner_name,
+        capacity_kw: Number(capacity_kw),
+        substation_code: finalSubstationCode,
+        meter_id: meter_id || `MTR-${installation_id}`,
+        ...(province_id && { province_id }),
+        ...(district_id && { district_id }),
+      });
+
+      const savedInstallation = await newInstallation.save();
+
+      res.status(201).json({
+        message: "Solar installation created successfully",
+        data: savedInstallation,
+      });
+    } catch (error) {
+      res.status(500).json({
+        code: "SERVER_ERROR",
+        message: "Failed to create solar installation",
+        details: error.message,
+      });
+    }
+  }
+);
+
 /**
  * @swagger
  * /api/installations/{id}:
